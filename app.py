@@ -9,7 +9,7 @@ from googlesearch import search
 
 source = "https://www.kaggle.com/datasets/wyattowalsh/basketball?resource=download-directory&select=csv"
 player_profile = pd.read_csv("data/common_player_info.csv")
-players_stats = pd.read_csv("data/nba2021_advanced.csv")
+players_stats = pd.read_csv("data/nba2021_per_game.csv")
 
 # main menu
 
@@ -88,14 +88,18 @@ elif selected == "Jugador":
     get_player_img(player_slug)
 
 elif selected == "Estadísticas":
-    st.title("Estadísticas")
-    st.markdown("##### Selecciona una estadística para ver su gráfico.")
+    st.title("Estadísticas temporada 2020-2021")
+    st.markdown("*Bubble Edition*")
 
-    st.markdown("##### Jugadores")
+    st.markdown("##### Mejores anotadores.")
+    # st.table(players_stats.sort_values(by="PTS", ascending=False).head(10))
+    st.bar_chart(players_stats.sort_values(by="PTS", ascending=False).head(10)["PTS"].groupby(players_stats["Player"]).sum())
 
-    st.markdown("##### Equipos")
+    st.markdown("##### Mejores reboteadores.")
+    st.bar_chart(players_stats.sort_values(by="TRB", ascending=False).head(10)["TRB"].groupby(players_stats["Player"]).sum())
 
-    st.markdown("##### Entrenadores")
+    st.markdown("##### Mejores asistentes.")
+    st.bar_chart(players_stats.sort_values(by="AST", ascending=False).head(10)["AST"].groupby(players_stats["Player"]).sum())
 
 elif selected == "Acerca de":
     st.title("Acerca de")
