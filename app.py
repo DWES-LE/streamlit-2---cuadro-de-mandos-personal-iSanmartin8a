@@ -8,6 +8,7 @@ from streamlit_option_menu import option_menu
 from googlesearch import search
 from PIL import Image
 import matplotlib.pyplot as plt
+import numpy as np
 
 # data
 
@@ -21,8 +22,8 @@ seasons_champs = pd.read_csv("data/Franquicias.csv")
 with st.sidebar:
     selected = option_menu(
         menu_title="Apartados",
-        options=["Inicio", "Jugadores", "Equipos", "Campeonatos", "Acerca de"],
-        icons=["house", "person-bounding-box", "bar-chart", "trophy", "info-circle"],
+        options=["Inicio", "Jugadores", "Equipos", "Campeonatos", "Tu jugador", "Acerca de"],
+        icons=["house", "eye", "bar-chart", "trophy", "person-bounding-box", "info-circle"],
         menu_icon="gear",
         default_index=0,
         orientation="vertical",
@@ -106,15 +107,9 @@ def progressBarRunning():
         progress_bar.empty()
         progress_text.empty()
 
-# content
-
 def main_strengths(player_name):
-    promedioPts = players_stats["PTS"].mean()
-    promedioAst = players_stats["AST"].mean()
-    promedioReb = players_stats["TRB"].mean()
-
     player = players_stats[players_stats["Player"] == player_name]
-
+    print(player)
     pts = player["PTS"].values[0]
     ast = player["AST"].values[0]
     reb = player["TRB"].values[0]
@@ -133,30 +128,43 @@ def main_strengths(player_name):
     prAstStrength = prAst/prTotal
     prRebStrength = prReb/prTotal
 
-    labels = ["Puntos", "Asistencias", "Rebotes"]
-    sizes = [prPtosStrength, prAstStrength, prRebStrength]
+    return prPtosStrength, prAstStrength, prRebStrength
 
-    fig1, ax1 = plt.subplots()
-    ax1.pie(sizes, labels=labels, autopct='%1.1f%%',
-            shadow=True, startangle=90)
-    ax1.axis('equal') 
+def who_are_u(pts, ast, reb):
+    # consigo el porcentaje en que destaca cada jugador con la función main_strengths
+    # y comparo con los valores que me pasan por parámetro para ver a que jugador me asemejo más
+    # y devuelvo el nombre del jugador
+    lista_stats = []
+    lista_nombres = []
 
-    st.pyplot(fig1)
+    mejoresJugadores = players_stats.sort_values(by=["PTS", "AST", "TRB"], ascending=False).head(10)
 
-    st.markdown(f'Destaca en {prPtosStrength*100:.2f}% en anotación, {prAstStrength*100:.2f}% en asistencias y {prRebStrength*100:.2f}% en rebotes.')
+    for i in range(len(mejoresJugadores)):
+        player = mejoresJugadores.iloc[i]
+        player_name = player["Player"]
+        player_strengths = main_strengths(player_name)
+        lista_stats.append(player_strengths)
+        lista_nombres.append(player_name)
+    
+    matriz = np.array(lista_stats)
+    
+    distancias = np.sqrt(np.sum((matriz - np.array([pts, ast, reb]))**2, axis=1))
 
-    if prPtosStrength > prAstStrength and prPtosStrength > prRebStrength:
-        st.markdown(f'**{player_name}** es anotador.')
-    elif prAstStrength > prPtosStrength and prAstStrength > prRebStrength:
-        st.markdown(f'**{player_name}** es asistente.')
-    elif prRebStrength > prPtosStrength and prRebStrength > prAstStrength:
-        st.markdown(f'**{player_name}** es reboteador.')
+    fila_mas_cercana = np.argmin(distancias)
+
+    st.write("Te asemejas más a: ")
+    st.subheader(lista_nombres[fila_mas_cercana])
+
+    return lista_stats[fila_mas_cercana] , lista_nombres[fila_mas_cercana]
+# content
 
 if selected == "Inicio":
     st.title("Inicio")
     st.markdown("##### Bienvenido a la plataforma de análisis estadístico sobre la NBA.")
     st.markdown("Desde puntos por partido, asistencias, rebotes, triples, etc. hasta estadísticas de equipos, jugadores, entrenadores, etc.")
     st.markdown("*Nota: Esta plataforma ha sido desarrollada por **Alejandro Sanmartín** para la asignatura de Desarrollo Web en Entorno Servidor del Grado Superior Desarrollo de Aplicaciones Web en CPIFP Los Enlaces.*")
+
+    st.video("data/intro.mp4", start_time=0, format="mp4")
 
     st.subheader("Perfil de jugador")
     st.markdown("*Para empezar a testear la web, selecciona un jugador para ver su perfil.*")
@@ -191,7 +199,26 @@ elif selected == "Jugadores":
     st.markdown("Selecciona un jugador para ver sus fortalezas.")
     player_name = st.selectbox("Jugador", players_stats["Player"].unique())
 
-    main_strengths(player_name)
+    prPtosStrength, prAstStrength, prRebStrength = main_strengths(player_name)
+
+    labels = ["Puntos", "Asistencias", "Rebotes"]
+    sizes = [prPtosStrength, prAstStrength, prRebStrength]
+
+    fig1, ax1 = plt.subplots()
+    ax1.pie(sizes, labels=labels, autopct='%1.1f%%',
+            shadow=True, startangle=90)
+    ax1.axis('equal') 
+
+    st.pyplot(fig1)
+
+    st.markdown(f'Destaca en {prPtosStrength*100:.2f}% en anotación, {prAstStrength*100:.2f}% en asistencias y {prRebStrength*100:.2f}% en rebotes.')
+
+    if prPtosStrength > prAstStrength and prPtosStrength > prRebStrength:
+        st.markdown(f'**{player_name}** es anotador.')
+    elif prAstStrength > prPtosStrength and prAstStrength > prRebStrength:
+        st.markdown(f'**{player_name}** es asistente.')
+    elif prRebStrength > prPtosStrength and prRebStrength > prAstStrength:
+        st.markdown(f'**{player_name}** es reboteador.')
 
     apartado = st.radio("Selecciona una estadística para ver el gráfico de puntos por partido.", ("PTS", "AST", "TRB", "STL", "BLK", "TOV", "PF", "FG%", "3P%", "FT%"))
     st.bar_chart(players_stats.sort_values(by=apartado, ascending=False).head(10)[apartado].groupby(players_stats["Player"]).mean())
@@ -231,13 +258,104 @@ elif selected == "Campeonatos":
 
     st.pyplot(fig1)
 
+elif selected == "Tu jugador":
+    st.title("Tu jugador")
+    st.markdown("¿Qué jugador serías según tu estilo de juego?")
+
+    puntos, rebotes, asistencias = 0, 0, 0
+
+    st.markdown("¿Qué porcentaje dedicas a los puntos?")
+    if rebotes + asistencias == 100:
+        st.warning("No puedes dedicar más del 100% a los puntos, rebotes y asistencias.")
+        puntos = 0
+    else:
+        puntos = st.slider('Puntos (%)', min_value=0, max_value=100-rebotes-asistencias, value=0)
+
+    st.markdown("¿Qué porcentaje dedicas a los rebotes?")
+    if puntos + asistencias == 100:
+        st.warning("No puedes dedicar más del 100% a los puntos, rebotes y asistencias.")
+        rebotes = 0
+    else:
+        rebotes = st.slider('Rebotes (%)', min_value=0, max_value=100-puntos-asistencias, value=0)
+
+    st.markdown("¿Qué porcentaje dedicas a las asistencias?")
+    if puntos + rebotes == 100:
+        st.warning("No puedes dedicar más del 100% a los puntos, rebotes y asistencias.")
+        asistencias = 0
+    else:
+        asistencias = st.slider('Asistencias (%)', min_value=0, max_value=100-puntos-rebotes, value=0)
+
+    suma = puntos + rebotes + asistencias
+
+    if suma != 100:
+        st.warning(f'La suma de los tres sliders es {suma}. Debe ser 100.')
+    else:
+        st.success(f'La suma de los tres sliders es {suma}. Debe ser 100.')
+        if st.button("Calcular"):
+            progressBarRunning()
+            stats, nombre = who_are_u(puntos/100, asistencias/100, rebotes/100)
+            
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("##### Estadísticas de tu jugador.")
+                labels = ["Puntos", "Asistencias", "Rebotes"]
+                sizes = [puntos, asistencias, rebotes]
+
+                fig1, ax1 = plt.subplots()
+                ax1.pie(sizes, labels=labels, autopct='%1.1f%%', shadow=True, startangle=90)
+                ax1.axis('equal') 
+
+                st.pyplot(fig1)
+                plt.close(fig1)
+
+                st.markdown(f'Destaca en {puntos:.2f}% en anotación, {asistencias:.2f}% en asistencias y {rebotes:.2f}% en rebotes.')
+
+                if puntos > asistencias and puntos > rebotes:
+                    st.markdown(f'Eres anotador.')
+                elif asistencias > puntos and asistencias > rebotes:
+                    st.markdown(f'Eres asistente.')
+                elif rebotes > puntos and rebotes > asistencias:
+                    st.markdown(f'Eres reboteador.')
+
+            with col2:
+                st.markdown("##### Estadísticas de tu jugador ideal.")
+                # st.write(nombre)
+                prPtosStrength, prAstStrength, prRebStrength = main_strengths(nombre)
+                # st.write(prPtosStrength, prAstStrength, prRebStrength)
+                # st.write(nombre)
+                tamanios = [prPtosStrength, prAstStrength, prRebStrength]
+
+                fig2, ax2 = plt.subplots()
+                ax2.pie(tamanios, labels=labels, autopct='%1.1f%%', shadow=True, startangle=90)
+                ax2.axis('equal') 
+
+                st.pyplot(fig2)
+                plt.close(fig2)
+
+                st.markdown(f'Destaca en {prPtosStrength*100:.2f}% en anotación, {prAstStrength*100:.2f}% en asistencias y {prRebStrength*100:.2f}% en rebotes.')
+
+                if prPtosStrength > prAstStrength and prPtosStrength > prRebStrength:
+                    st.markdown(f'**{nombre}** es anotador.')
+                elif prAstStrength > prPtosStrength and prAstStrength > prRebStrength:
+                    st.markdown(f'**{nombre}** es asistente.')
+                elif prRebStrength > prPtosStrength and prRebStrength > prAstStrength:
+                    st.markdown(f'**{nombre}** es reboteador.')
+
 elif selected == "Acerca de":
     st.title("Acerca de")
 
-    st.subheader("Información del proyecto")
-    st.markdown("- Desarrollado por Alejandro Sanmartín")
-    st.markdown("- Grado Superior Desarrollo de Aplicaciones Web")
-    st.markdown("- CPIFP Los Enlaces")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Información del proyecto")
+        st.markdown("- Desarrollado por Alejandro Sanmartín")
+        st.markdown("- FPGS Desarrollo de Aplicaciones Web")
+        st.markdown("- CPIFP Los Enlaces")
+
+    with col2:
+        # imagen del logo de la nba
+        st.image("https://th.bing.com/th/id/R.57ff12c7464ea5adf90676b8a1e724d0?rik=K3YUZhQiQ2yr7Q&pid=ImgRaw&r=0", width=300)
 
     st.subheader("Desarrollo del trabajo")
 
@@ -247,7 +365,8 @@ elif selected == "Acerca de":
     st.markdown("La siguiente sección que decidí crear fue la de jugadores, donde se muestran los datos de los jugadores de la NBA. Se hace uso de un dataset de Kaggle para obtener los datos de los jugadores y se muestra una tabla con los datos de los mismos.")
     st.markdown("En la siguiente sección, se muestran las estadísticas de la temporada 2021/22. Se muestran los mejores anotadores, reboteadores y asistentes de la temporada. También se puede seleccionar un jugador para ver sus fortalezas y un gráfico de barras con las estadísticas de la temporada.")
     st.markdown("La siguiente sección es la de equipos, donde se muestran los jugadores de cada equipo.")
-    st.markdown("La última sección es la de campeonatos, donde se muestran los campeonatos de la NBA y los resultados de cada temporada. Puedes filtrar por año o franquicia para ver los resultados.")
+    st.markdown("A continuación nos encontramos con la sección de campeonatos, donde se muestran los campeonatos de la NBA y los resultados de cada temporada. Puedes filtrar por año o franquicia para ver los resultados.")
+    st.markdown("La siguiente sección es la de jugadores ideales, donde se puede crear un jugador ideal a partir de tres sliders. Estos sliders representan el porcentaje de puntos, asistencias y rebotes que se quiere dedicar al jugador. Una vez seleccionado el porcentaje, se muestra un gráfico de tarta con las estadísticas del jugador ideal y de tu jugador. Es una especie de: ¿Quién serías en la NBA actual?")
     st.markdown("Por último, se ha creado una sección de acerca de, donde se muestra información sobre el proyecto.")
 
     st.markdown("##### *Tecnologías utilizadas*")
